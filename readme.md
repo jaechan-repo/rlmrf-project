@@ -6,6 +6,6 @@ We use the perplexity of a multimodal LLM augmented by text/image retrieval syst
 
 
 ```
-python generate_passage_embeddings.py --model_name_or_path /mmfs1/gscratch/ark/chan0369/rlmrf-project/models/contriever --output_dir /mmfs1/gscratch/ark/chan0369/rlmrf-project/data/contriever_msmarco/wikipedia_embeddings --passages /mmfs1/gscratch/ark/chan0369/rlmrf-project/data/psgs_w100.tsv --shard_id 0 --num_shards 1
+python generate_passage_embeddings.py --model_name_or_path /mmfs1/gscratch/ark/chan0369/rampa-project/models/contriever --output_dir /mmfs1/gscratch/ark/chan0369/rampa-project/data/contriever_msmarco/wikipedia_embeddings --passages /mmfs1/gscratch/ark/chan0369/rampa-project/data/psgs_w100.tsv --shard_id 0 --num_shards 1
 ```
 
