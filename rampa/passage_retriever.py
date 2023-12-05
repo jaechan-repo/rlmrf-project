@@ -50,13 +50,13 @@ class ContrieverRetriever():
         if self.model is None:
             raise Exception("Prepare the model first")
         question_embedding = embed_queries(queries, self.model, self.tokenizer, 
-                                           per_gpu_batch_size=per_gpu_batch_size,
+                                            per_gpu_batch_size=per_gpu_batch_size,
                                            question_maxlength=question_maxlength)
         top_ids_and_scores = self.index.search_knn(question_embedding, n_docs)
         return top_ids_and_scores
     
     def id_to_text(self, doc_id: str):
-        doc = self.passages_id_map[doc_id]
+        doc = self.passage_id_map[doc_id]
         return {
             'title': doc['title'],
             'text': doc['text']
@@ -94,6 +94,6 @@ def embed_queries(queries, model, tokenizer,
                 batch_question = []
 
     embeddings = torch.cat(embeddings, dim=0)
-    print(f"Questions embeddings shape: {embeddings.size()}")
+    # print(f"Questions embeddings shape: {embeddings.size()}")
 
     return embeddings.numpy()

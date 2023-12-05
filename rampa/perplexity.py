@@ -1,21 +1,18 @@
 import sys
 sys.path.append("../")
 
-import PIL
-from tqdm import tqdm
 import numpy as np
 from torch.nn.modules.loss import CrossEntropyLoss
-from abc import ABC, abstractmethod
 from .llava.model.builder import load_pretrained_model
-from .llava.mm_utils import tokenizer_image_token
+from .llava.mm_utils import tokenizer_image_token, get_model_name_from_path
 from .llava.constants import IMAGE_TOKEN_INDEX
+from .utils import LLaVAProcessor
 import torch
-from transformers import AutoTokenizer, AutoModelForCausalLM
 from typing import List, Dict
 
 class TeacherPerplexity(object):
 
-    def compute(self, predictions: list[str], batch_size: int = 64, add_start_token: bool = True):
+    def compute(self, data: list[str], batch_size: int = 64, add_start_token: bool = True):
         device = "cuda"
         if self.tokenizer.pad_token is None and batch_size > 1:
             existing_special_tokens = list(self.tokenizer.special_tokens_map_extended.values())
@@ -36,7 +33,7 @@ class TeacherPerplexity(object):
             max_tokenized_len = self.model.config.max_length
 
         encodings = self.tokenizer(
-            predictions,
+            data,
             add_special_tokens=False,
             padding=True,
             truncation=True,
@@ -59,7 +56,7 @@ class TeacherPerplexity(object):
         ppls = []
         loss_fct = CrossEntropyLoss(reduction="none")
 
-        for start_index in tqdm(range(0, len(encoded_texts), batch_size)):
+        for start_index in range(0, len(encoded_texts), batch_size):
             end_index = min(start_index + batch_size, len(encoded_texts))
             encoded_batch = encoded_texts[start_index:end_index]
             attn_mask = attn_masks[start_index:end_index]
@@ -90,25 +87,29 @@ class TeacherPerplexity(object):
         return {"perplexities": ppls, "mean_perplexity": np.mean(ppls)}
 
 
-class LLaMA2Perplexity(TeacherPerplexity):
-    def __init__(self, model_path: str, load_8bit: bool = False, load_4bit: bool = False):
-        self.model = AutoModelForCausalLM.from_pretrained(
-            model_path, load_in_8bit=load_8bit, 
-            load_in_4bit=load_4bit and not load_8bit)
-        self.tokenizer = AutoTokenizer.from_pretrained(model_path)
+# class LLaMA2Perplexity(TeacherPerplexity):
+#     def __init__(self, model_path: str, load_8bit: bool = False, load_4bit: bool = False):
+#         self.model = AutoModelForCausalLM.from_pretrained(
+#             model_path, load_in_8bit=load_8bit, 
+#             load_in_4bit=load_4bit and not load_8bit)
+#         self.tokenizer = AutoTokenizer.from_pretrained(model_path)
 
 class LLaVAPerplexity(TeacherPerplexity):
 
     def __init__(self, model_path: str, load_8bit: bool = False, load_4bit: bool = False):
         self.tokenizer, self.model, self.image_processor, _ = load_pretrained_model(
-                model_path, None, "llava", 
+                model_path, None, get_model_name_from_path(model_path), 
                 load_8bit=load_8bit, 
-                load_4bit = load_4bit and not load_8bit, 
+                load_4bit = load_4bit, 
                 device="cuda")
+        self.processor = LLaVAProcessor(self.tokenizer, 
+                                        self.image_processor, 
+                                        self.model.config.mm_use_im_start_end, 
+                                        conv_mode='llava_v1')
 
     def compute_visual(
             self,
-            predictions: list[str], images: list[PIL.Image.Image], 
+            data: List[str], image_paths: List[str], 
             batch_size: int = 64, add_start_token: bool = True, 
     ) -> Dict[str, List[float]]:
         """
@@ -117,8 +118,8 @@ class LLaVAPerplexity(TeacherPerplexity):
         Source: https://huggingface.co/spaces/evaluate-measurement/perplexity/blob/ac4135177bfee71b1efd7bd3aff62e456e30aef9/perplexity.py
 
         Args:
-            predictions (list[str]): LLaVA responses
-            images (list[PIL.Image.Image]): Images for visual queries. Must match the length of the predictions.
+            data (list[str]): LLaVA responses
+            images (list[PIL.Image.Image]): Images for visual queries. Must match the length of the data.
             batch_size (int, optional): Defaults to 64.
             add_start_token (bool, optional): Defaults to True.
 
@@ -128,23 +129,28 @@ class LLaVAPerplexity(TeacherPerplexity):
         
         ### BEGIN: Edited from source ###
         ### tokenize with the image token ###
-        if len(predictions) != len(images):
-            raise ValueError("The length of predictions does not match the length of images!")
+        if len(data) != len(image_paths):
+            raise ValueError("The length of data does not match the length of images!")
         
         device = "cuda"
         if self.tokenizer.pad_token is None and batch_size > 1:
             self.tokenizer.add_special_tokens({'pad_token': self.tokenizer.eos_token})
 
         with torch.inference_mode():
-            encoded_texts = [
-                tokenizer_image_token(
-                    prediction, self.tokenizer, IMAGE_TOKEN_INDEX, return_tensors='pt'
-                    ).unsqueeze(0).cuda()[0] for prediction in predictions]
-            attn_masks = [
+            images = [LLaVAProcessor.load_image(image_path) for image_path in image_paths]
+            input_ids = [tokenizer_image_token(prompt, self.tokenizer, 
+                                                   IMAGE_TOKEN_INDEX, 
+                                                   return_tensors='pt'
+                                                   ) for prompt in data]
+            max_len = max([len(seq) for seq in input_ids])
+            padded_input_ids = [LLaVAProcessor.pad_sequence_to_max_length(seq.squeeze(), max_len) for seq in input_ids]
+            encoded_texts = torch.stack(padded_input_ids)
+            encoded_images = self.image_processor(images, return_tensors="pt")["pixel_values"]
+            attn_masks = torch.stack([
                 text.ne(self.tokenizer.pad_token_id) for text in encoded_texts
-            ]
-            encoded_texts, attn_masks = torch.stack(encoded_texts), torch.stack(attn_masks)
-            encoded_images = self.image_processor.preprocess(images, return_tensors='pt')['pixel_values'].half().cuda()
+            ])
+            encoded_texts, attn_masks, encoded_images = \
+                encoded_texts.to(device), attn_masks.to(device), encoded_images.half().to(device)
         ### END: Edited from source ###
 
         if add_start_token:
@@ -155,9 +161,10 @@ class LLaVAPerplexity(TeacherPerplexity):
             ), "When add_start_token=False, each input text must be at least two tokens long. Run with add_start_token=True if inputting strings of only one token, and remove all empty input strings."
         
         ppls = []
+        input_lengths = []
         loss_fct = CrossEntropyLoss(reduction='none')
 
-        for start_index in tqdm(range(0, len(encoded_texts), batch_size)):
+        for start_index in range(0, len(encoded_texts), batch_size):
             end_index = min(start_index + batch_size, len(encoded_texts))
             encoded_batch_texts = encoded_texts[start_index:end_index]
             encoded_batch_images = encoded_images[start_index:end_index]
@@ -191,8 +198,37 @@ class LLaVAPerplexity(TeacherPerplexity):
                 (loss_fct(shift_logits.transpose(1, 2), shift_labels) * shift_attention_mask_batch).sum(1)
                 / shift_attention_mask_batch.sum(1)
             )
-            
+
+            input_lengths += shift_attention_mask_batch.sum(1).tolist()
             ppls += perplexity_batch.tolist()
 
+        return {"perplexities": ppls, 
+                "mean_perplexity": np.mean(ppls), 
+                "input_lengths": input_lengths}
+    
 
-        return {"perplexities": ppls, "mean_perplexity": np.mean(ppls)}
+    def compute_visual_conditional(
+        self,
+        joints: List[str], 
+        contexts: List[str],
+        image_paths: List[str], 
+        batch_size: int = 64, 
+        add_start_token: bool = True, 
+    ) -> Dict[str, List[float]]:
+        joint_ppls = self.compute_visual(joints, image_paths,
+                                        batch_size=batch_size,
+                                        add_start_token=add_start_token)
+        joint_ppls, joint_lengths = joint_ppls["perplexities"], joint_ppls["input_lengths"]
+        context_ppls = self.compute_visual(contexts, image_paths, 
+                                          batch_size=batch_size,
+                                          add_start_token=add_start_token)
+        context_ppls, context_lengths = context_ppls["perplexities"], context_ppls["input_lengths"]
+        data_lengths = [x - y for (x, y) in zip(joint_lengths, context_lengths)]
+        context_exponents = [x / y for (x, y) in zip(context_lengths, data_lengths)]
+        context_ppls_scaled = [x ** y for (x, y) in zip(context_ppls, context_exponents)]
+        joint_exponents = [x / y for (x, y) in zip(joint_lengths, data_lengths)]
+        joint_ppls_scaled = [x ** y for (x, y) in zip(joint_ppls, joint_exponents)]
+        ppls = [x / y for (x, y) in zip(joint_ppls_scaled, context_ppls_scaled)] # conditional
+        return {"perplexities": ppls,
+                "mean_perplexity" : np.mean(ppls),
+                "input_lengths": data_lengths}

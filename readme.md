@@ -1,4 +1,4 @@
-# Reinforcement Learning with Multimodal Retrieval Feedback
+# Retrieval-Augmented Multimodal Preference Alignment (RAMPA)
 
 ![img](assets/images/art1.png)
 

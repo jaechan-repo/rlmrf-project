@@ -1,3 +1,5 @@
 models/
 data/
-data_prep/
+ckpt/
+wandb/
+data_in/
