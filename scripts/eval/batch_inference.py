@@ -150,14 +150,12 @@ def main(args):
     os.makedirs(output_dir, exist_ok=True)
     f = open(args.output_file, 'w')
     if args.task == 'aokvqa':
-        submission = []
+        submission = {}
         for line in output:
-            submission.append({
-                line['question']['qid']: {
-                    'multiple_choice': "", # TODO Add support for multiple choice answering, too
-                    'direct_answer': line['responses'][0]['text']
-                }
-            })
+            submission[line['question']['qid']] = {
+                # TODO Add support for multiple choice answering, too
+                'direct_answer': line['responses'][0]['text']
+            }
         json.dump(submission, f)
     else:
         json.dump(output, f)
