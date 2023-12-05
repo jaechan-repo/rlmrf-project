@@ -77,8 +77,8 @@ def load_pretrained_model(model_path, model_base, model_name, load_8bit=False, l
             from peft import PeftModel
             print('Loading LoRA weights...')
             model = PeftModel.from_pretrained(model, model_path)
-            print('Merging LoRA weights...')
-            model = model.merge_and_unload()
+            # print('Merging LoRA weights...')
+            # model = model.merge_and_unload()
             print('Model is loaded...')
         elif model_base is not None:
             # this may be mm projector only
@@ -117,8 +117,8 @@ def load_pretrained_model(model_path, model_base, model_name, load_8bit=False, l
                                                          )
             print(f"Loading LoRA weights from {model_path}")
             model = PeftModel.from_pretrained(model, model_path)
-            print(f"Merging weights")
-            model = model.merge_and_unload()
+            # print(f"Merging weights")
+            # model = model.merge_and_unload()
             print('Convert to FP16...')
             model.to(torch.float16)
         else:

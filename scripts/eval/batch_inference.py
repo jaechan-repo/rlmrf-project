@@ -170,7 +170,7 @@ if __name__ == '__main__':
     parser.add_argument("--dataset-file", type=str, 
                         default=os.path.join(BASE_DIR, "data_in/iter0/aokvqa/test.json"))
     parser.add_argument("--output-file", type=str, 
-                        default=os.path.join(BASE_DIR, "data_out/aokvqa_submit_reward_text.json"))
+                        default=os.path.join(BASE_DIR, "data_out/aokvqa_pred_reward_text.json"))
     parser.add_argument("--model-path", type=str, 
                         default=os.path.join(BASE_DIR, "ckpt/iter1/reward_text/llava-v1.5-7b-lora"))
     parser.add_argument("--model-base", type=str, 
