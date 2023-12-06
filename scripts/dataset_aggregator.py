@@ -52,8 +52,9 @@ if __name__ == '__main__':
                 for _, row in df.iterrows():
                     line: DataQA = {
                         'question': {
-                            'qid': row['question_id'], 
+                            'qid': row['question_id'],
                             'text': row['question'], 
+                            'choices': row['choices'],
                             'image_id': row['image_id'],
                             'image_file': f"coco2017/{split}2017/{str(row['image_id']).zfill(12)}.jpg",
                         },
