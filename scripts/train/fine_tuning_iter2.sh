@@ -1,5 +1,5 @@
-MODEL_DIR="../../models/llava-v1.5-7b"
-OUTPUT_DIR="../../ckpt/iter1/reward_image/llava-v1.5-7b-lora"
+MODEL_DIR="../../ckpt/iter1/reward/llava-v1.5-7b-lora"
+OUTPUT_DIR="../../ckpt/iter2/reward/llava-v1.5-7b-lora"
 DATA_PATH="../../data_in/iter1/sft_image.json"
 INCLUDES_NON_VQA=False
 EPOCHS=5
