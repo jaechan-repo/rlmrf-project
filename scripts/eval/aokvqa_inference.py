@@ -153,12 +153,12 @@ def rollout_model(student_path: str,
             if output.endswith(stop_str):
                 output = output[:-len(stop_str)]
             output = output.strip()
-            parsed_number = find_correct_answer(output)
+            parsed_index = find_correct_answer(output)
             print(output)
-            print(f"Parsed number: {parsed_number}")
+            print(f"Parsed number: {parsed_index}")
             print()
             mc_submission[line['question']['qid']] = {
-                'multiple_choice': parsed_number,
+                'multiple_choice': line['question']['choices'][parsed_index],
                 'direct_answer': ""
             }
 
@@ -188,14 +188,14 @@ if __name__ == '__main__':
     parser.add_argument("--dataset-file", type=str, 
                         default=os.path.join(BASE_DIR, "data_in/iter0/aokvqa/test.json"))
     parser.add_argument("--output-file", type=str, 
-                        default=os.path.join(BASE_DIR, "data_out/aokvqa/baseline/predictions_test.json"))
-    # parser.add_argument("--model-path", type=str, 
-    #                     default=os.path.join(BASE_DIR, "ckpt/iter1/reward_text/llava-v1.5-7b-lora"))
-    # parser.add_argument("--model-base", type=str, 
-    #                     default=os.path.join(BASE_DIR, "models/llava-v1.5-7b"))
+                        default=os.path.join(BASE_DIR, "data_out/aokvqa/reward_image/predictions_test.json"))
     parser.add_argument("--model-path", type=str, 
+                        default=os.path.join(BASE_DIR, "ckpt/iter1/reward_image/llava-v1.5-7b-lora"))
+    parser.add_argument("--model-base", type=str, 
                         default=os.path.join(BASE_DIR, "models/llava-v1.5-7b"))
-    parser.add_argument("--model-base", type=str, default=None)
+    # parser.add_argument("--model-path", type=str, 
+    #                     default=os.path.join(BASE_DIR, "models/llava-v1.5-7b"))
+    # parser.add_argument("--model-base", type=str, default=None)
 
     parser.add_argument("--task", type=str, default='aokvqa')
     parser.add_argument("--image-folder", type=str, 

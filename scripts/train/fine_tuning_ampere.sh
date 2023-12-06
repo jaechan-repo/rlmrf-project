@@ -1,7 +1,6 @@
-
 MODEL_DIR="../../models/llava-v1.5-7b"
-OUTPUT_DIR="../../ckpt/iter1/reward/llava-v1.5-7b-lora"
-DATA_PATH="../../data_in/iter1/sft.json"
+OUTPUT_DIR="../../ckpt/iter1/reward_image/llava-v1.5-7b-lora"
+DATA_PATH="../../data_in/iter1/sft_image.json"
 INCLUDES_NON_VQA=False
 EPOCHS=5
 
@@ -29,7 +28,7 @@ deepspeed $TRAINER \
     --fp16 $FP16 \
     --tf32 $TF32 \
     --num_train_epochs $EPOCHS \
-    --per_device_train_batch_size 8 \
+    --per_device_train_batch_size 10 \
     --per_device_eval_batch_size 4 \
     --gradient_accumulation_steps 1 \
     --evaluation_strategy "no" \
